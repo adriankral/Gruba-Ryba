@@ -22,7 +22,7 @@ std::vector<std::shared_ptr<Property> > Player::sellFor(int money)
 	return toBeSold;
 }
 
-unsigned int Player::pay(unsigned int cost)
+unsigned int Player::pay(bool volountary, unsigned int cost)
 {
 	if(cost <= cash)
 	{
@@ -32,6 +32,8 @@ unsigned int Player::pay(unsigned int cost)
 	std::vector<std::shared_ptr<Property> > toBeSold = sellFor(cost - cash);
 	if(toBeSold.empty())
 	{
+		if(volountary)
+			return 0;
 		unsigned int repayment = declareBankruptcy();
 		return repayment;
 	}
@@ -68,7 +70,7 @@ void Property::onStep(std::shared_ptr<Player> p)
 	{
 		if(p->wantBuy(name))
 		{
-			if(p->pay(toPay()))
+			if(p->pay(toPay()) == cost)
 				owner = p;
 		}
 	}
@@ -86,17 +88,24 @@ MojaGrubaRyba::MojaGrubaRyba() : players(), fields(), die(), turn(0),
 void MojaGrubaRyba::addComputerPlayer(MojaGrubaRyba::ComputerLevel level)
 {
 	if(players.size() >= MAX_PLAYERS)
-		throw TooManyPlayersException();
+		throw TooManyPlayersException(MAX_PLAYERS);
 	std::string newName = "Gracz ";
 	newName += std::string(++playersCount);
-	players.push_back(std::shared_ptr<Player>(new ComputerPlayer(newName, level)));
+	std::shared_ptr<Player> compPlayer;
+	if(level == ComputerLevel::DUMB)
+		compPlayer = std::shared_ptr<Player>(new ComputerDUMB(newName, STARTPOS, STARTCASH));
+	else if(level == ComputerLevel::SMARTASS)
+		compPlayer = std::shared_ptr<Player>(new ComputerSMARTASS(newName, STARTPOS, STARTCASH));
+	players.push_back(std::shared_ptr<Player>(compPlayer));
+	activePlayers++;
 }
 
 void MojaGrubaRyba::addHumanPlayer(std::shared_ptr<Human> human)
 {
 	if(players.size() >= MAX_PLAYERS)
-		throw TooManyPlayersException();
+		throw TooManyPlayersException(MAX_PLAYERS);
 	players.push_back(human);
+	activePlayers++;
 }
 
 void MojaGrubaRyba::makeTurn()
@@ -145,6 +154,8 @@ void MojaGrubaRyba::play(unsigned int rounds)
 {
 	if(!die)
 		throw NoDieException();
+	if(activePlayers < MIN_PLAYERS)
+		throw TooFewPlayersException(MIN_PLAYERS);
 	for(unsigned int i = 0; activePlayers >= MIN_PLAYERS && i < rounds; i++)
 	{
 		printf("Runda %u.\n", i);

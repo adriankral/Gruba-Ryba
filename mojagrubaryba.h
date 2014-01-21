@@ -33,7 +33,7 @@ public:
 	// returns cost if the player can afford it; if not, declares
 	// bankruptcy and returns the amount of money gained
 	// through selling all properties
-	unsigned int pay(unsigned int cost);
+	unsigned int pay(bool volountary = true, unsigned int cost);
 	void receive(unsigned int cost) { cash += cost; }
 	void wait(unsigned int delay) { toWait += delay; }
 	// sells all properties, sets itself inactive and returns
@@ -42,12 +42,24 @@ public:
 	std::vector<std::shared_ptr<Property> > properties;
 };
 
-class ComputerPlayer : Player
+class ComputerDUMB : Player
 {
 private:
-	ComputerLevel level;
+	unsigned short counter;
 public:
-	ComputerPlayer(std::string const& name, int _position, int _cash, ComputerLevel _level) : Player(_name, _position, _cash), level(_level) {}
+	ComputerDUMB(std::string const& _name, int _position, int _cash) :
+		Player(_name, _position, _cash) {}
+	bool wantBuy(std::string const& property) const;
+	bool wantSell(std::string const& property) const { return true; }
+}
+
+class ComputerSMARTASS : Player
+{
+public:
+	ComputerSMARTASS(std::string const& _name, int _position, int _cash) :
+		Player(_name, _position, _cash) {}
+	bool wantBuy(std::string const& property) const { return true; }
+	bool wantSell(std::string const& property) const { return true; }
 }
 
 class Field
@@ -145,8 +157,11 @@ private:
 	std::shared_ptr<Die> die;
 	int turn;
 	int currentPlayer;
+
 	const unsigned int MIN_PLAYERS = 2;
 	const unsigned int MAX_PLAYERS = 8;
+	const unsigned int STARTPOS = 0;
+	const unsigned int STARTCASH = 1000;
 
 	void makeTurn();
 	void outputState();
@@ -155,6 +170,7 @@ public:
 	void setDie(std::shared_ptr<Die> _die) { if(_die) die = _die; }
 	void addComputerPlayer(GrubaRyba::ComputerLevel level); //TODO
 	void addHumanPlayer(std::shared_ptr<Human> human);
+	void play(unsigned int rounds);
 };
 
 class Coral : Property
