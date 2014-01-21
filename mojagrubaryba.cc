@@ -32,7 +32,7 @@ unsigned int Player::pay(unsigned int cost)
 	std::vector<std::shared_ptr<Property> > toBeSold = sellFor(cost - cash);
 	if(toBeSold.empty())
 	{
-		unsigned int repayment = declareBancruptcy();
+		unsigned int repayment = declareBankruptcy();
 		return repayment;
 	}
 	for(std::vector<std::shared_ptr<Property> >::iterator it = toBeSold.begin();
@@ -56,6 +56,12 @@ unsigned int Player::declareBankruptcy()
 	return repayment;
 }
 
+unsigned int Property::sell()
+{
+	owner.reset();
+	return soldValue();
+}
+
 void Property::onStep(std::shared_ptr<Player> p)
 {
 	if (!owner)
@@ -67,8 +73,82 @@ void Property::onStep(std::shared_ptr<Player> p)
 		}
 	}
 	else {
-		p->pay(toPay());
-		owner->receive(toPay());
+		owner->receive(p->pay(toPay()));
 	}
 }
 
+MojaGrubaRyba::MojaGrubaRyba() : players(), fields(), die(), turn(0),
+	currentPlayer(0), playersCount(0)
+{
+
+}
+
+void MojaGrubaRyba::addComputerPlayer(MojaGrubaRyba::ComputerLevel level)
+{
+	if(players.size() >= MAX_PLAYERS)
+		throw TooManyPlayersException();
+	std::string newName = "Gracz ";
+	newName += std::string(++playersCount);
+	players.push_back(std::shared_ptr<Player>(new ComputerPlayer(newName, level)));
+}
+
+void MojaGrubaRyba::addHumanPlayer(std::shared_ptr<Human> human)
+{
+	if(players.size() >= MAX_PLAYERS)
+		throw TooManyPlayersException();
+	players.push_back(human);
+}
+
+void MojaGrubaRyba::makeTurn()
+{
+	for(std::vector<std::shared_ptr<Player> > it = players.begin();
+			it != players.end(); ++i)
+	{
+		if(it->canMove())
+		{
+			it->movePassed();
+			unsigned short moves = die.roll();
+			for(unsigned short i = 0; it->canMove() && i < moves - 1; i++)
+			{
+				it->setPosition((it->getPosition() + 1) % fields.size());
+				fields[it->getPosition()]->onPass(it);
+			}
+			if(it->canMove())
+			{
+				it->setPosition((it->getPosition() + 1) % fields.size());
+				fields[it->getPosition()]->onStay(it);
+			}
+			if(!it->isActive())
+			{
+				--activePlayers;
+			}
+		} else
+			it->movePassed();
+	}
+}
+
+void MojaGrubaRyba::outputState()
+{
+	for(std::vector<std::shared_ptr<Player> > it = players.begin();
+			it != players.end(); ++it)
+	{
+		if(it->canMove())
+			printf("%s pole: %s gotowka: %u\n", it->getName(), fields[it->getPosition()]->getName(), it->getCash());
+		else if(it->isActive())
+			printf("%s pole: %s *** czekanie %u ***\n", it->getName(), fields[it->getPosition()]->getName(), it->getToWait());
+		else
+			printf("%s *** bankrut ***\n", it->getName());
+	}
+}
+
+void MojaGrubaRyba::play(unsigned int rounds)
+{
+	if(!die)
+		throw NoDieException();
+	for(unsigned int i = 0; activePlayers >= MIN_PLAYERS && i < rounds; i++)
+	{
+		printf("Runda %u.\n", i);
+		makeTurn();
+		outputState();
+	}
+}
