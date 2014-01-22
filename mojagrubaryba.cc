@@ -1,35 +1,35 @@
 #include <vector>
 #include "mojagrubaryba.h"
-#include "tests/grubaryba.h" //FIXME remember to change the path at the end!
 
 using namespace std;
 
-std::vector<std::shared_ptr<Property> > Player::sellFor(int money)
+
+
+PropertyVector Player::sellFor(int money)
 {
-	std::vector<std::shared_ptr<Property> > toBeSold;
+	PropertyVector toBeSold;
 	int soldValue;
-	for(std::vector<std::shared_ptr<Property> >::iterator it = properties.begin();
-			it != properties.end() && soldValue < money; ++it)
+	for(auto it = properties.begin(); it != properties.end() && soldValue < money; ++it)
 	{
-		if(wantSell(it->getName()))
+		if(  true) //wantSell((*it)->getName())) //dynamic cast?
 		{
-			soldValue += it->getSellValue();
-			toBeSold.push_back(it);
+			soldValue += (*it)->soldValue();
+			toBeSold.push_back(*it);
 		}
 	}
 	if(soldValue < money)
-		return std::vector<std::shared_ptr<Property> >();
+		return PropertyVector();
 	return toBeSold;
 }
 
-unsigned int Player::pay(bool volountary, unsigned int cost)
+unsigned int Player::pay(unsigned int cost, bool volountary)
 {
 	if(cost <= cash)
 	{
 		cash -= cost;
 		return cost;
 	}
-	std::vector<std::shared_ptr<Property> > toBeSold = sellFor(cost - cash);
+	PropertyVector toBeSold = sellFor(cost - cash);
 	if(toBeSold.empty())
 	{
 		if(volountary)
@@ -37,10 +37,9 @@ unsigned int Player::pay(bool volountary, unsigned int cost)
 		unsigned int repayment = declareBankruptcy();
 		return repayment;
 	}
-	for(std::vector<std::shared_ptr<Property> >::iterator it = toBeSold.begin();
-			it != toBeSold.end(); ++it)
+	for(auto it = toBeSold.begin(); it != toBeSold.end(); ++it)
 	{
-		cash += it->sell();
+		cash += (*it)->sell();
 	}
 	cash -= cost;
 	return cost;
@@ -49,10 +48,9 @@ unsigned int Player::pay(bool volountary, unsigned int cost)
 unsigned int Player::declareBankruptcy()
 {
 	unsigned int repayment = 0;
-	for(std::vector<std::shared_ptr<Property> >::it = properties.begin();
-			it != properties.end(); ++it)
+	for(auto it = properties.begin(); it != properties.end(); ++it)
 	{
-		repayment += it->sell();
+		repayment += (*it)->sell();
 	}
 	active = false;
 	return repayment;
@@ -66,21 +64,24 @@ unsigned int Property::sell()
 
 void Property::onStep(std::shared_ptr<Player> p)
 {
-	if (!owner)
+	if (!hasOwner)
 	{
-		if(p->wantBuy(name))
+		if( true ) //p->wantBuy(name))  // dynamic cast?
 		{
 			if(p->pay(toPay()) == cost)
+			{
 				owner = p;
+				hasOwner=true;
+			}
 		}
 	}
 	else {
-		owner->receive(p->pay(toPay()));
+		owner.lock()->receive(p->pay(toPay()));
 	}
 }
-
+ 
 MojaGrubaRyba::MojaGrubaRyba() : players(), fields(), die(), turn(0),
-	currentPlayer(0), playersCount(0)
+	currentPlayer(0), activePlayers(0)
 {
 
 }
@@ -90,13 +91,13 @@ void MojaGrubaRyba::addComputerPlayer(MojaGrubaRyba::ComputerLevel level)
 	if(players.size() >= MAX_PLAYERS)
 		throw TooManyPlayersException(MAX_PLAYERS);
 	std::string newName = "Gracz ";
-	newName += std::string(++playersCount);
-	std::shared_ptr<Player> compPlayer;
+	newName += ++activePlayers;
+	//Player compPlayer;
 	if(level == ComputerLevel::DUMB)
-		compPlayer = std::shared_ptr<Player>(new ComputerDUMB(newName, STARTPOS, STARTCASH));
+		; //compPlayer = ComputerDUMB(newName, STARTPOS, STARTCASH);
 	else if(level == ComputerLevel::SMARTASS)
-		compPlayer = std::shared_ptr<Player>(new ComputerSMARTASS(newName, STARTPOS, STARTCASH));
-	players.push_back(std::shared_ptr<Player>(compPlayer));
+		; //compPlayer = ComputerSMARTASS(newName, STARTPOS, STARTCASH);
+	//players.push_back(compPlayer);
 	activePlayers++;
 }
 
@@ -104,42 +105,44 @@ void MojaGrubaRyba::addHumanPlayer(std::shared_ptr<Human> human)
 {
 	if(players.size() >= MAX_PLAYERS)
 		throw TooManyPlayersException(MAX_PLAYERS);
-	players.push_back(human);
+	//Player hp = (HumanPlayer)(*human); 
+	//players.push_back(hp);
 	activePlayers++;
 }
 
 void MojaGrubaRyba::makeTurn()
 {
-	for(std::vector<std::shared_ptr<Player> > it = players.begin();
-			it != players.end(); ++i)
+	for(auto it = players.begin(); it != players.end(); ++it)
 	{
-		if(it->canMove())
+		if((*it)->canMove())
 		{
-			it->movePassed();
-			unsigned short moves = die.roll();
-			for(unsigned short i = 0; it->canMove() && i < moves - 1; i++)
+			(*it)->movePassed();
+			unsigned short moves = die->roll();
+			for(unsigned short i = 0; (*it)->canMove() && i < moves - 1; i++)
 			{
-				it->setPosition((it->getPosition() + 1) % fields.size());
-				fields[it->getPosition()]->onPass(it);
+				(*it)->setPosition(((*it)->getPosition() + 1) % fields.size());
+				fields[(*it)->getPosition()]->onPass(*it);
 			}
-			if(it->canMove())
+			if((*it)->canMove())
 			{
-				it->setPosition((it->getPosition() + 1) % fields.size());
-				fields[it->getPosition()]->onStay(it);
+				(*it)->setPosition(((*it)->getPosition() + 1) % fields.size());
+				fields[(*it)->getPosition()]->onStep(*it);
 			}
-			if(!it->isActive())
+			if(!(*it)->isActive())
 			{
 				--activePlayers;
 			}
 		} else
-			it->movePassed();
+			(*it)->movePassed();
 	}
 }
 
+/* FIXME trzeba coś zrobić z getname. Prawdopodobnie trzeba tu użyć dynamic casta. Proponuję żeby "ComputerPlayer" 
+ * posiadał wirtualną metodę getName i player w zależności od tego czy jest komputerem czy graczem żeby wywoływał metodę
+ * po odpowiednim caście.
 void MojaGrubaRyba::outputState()
 {
-	for(std::vector<std::shared_ptr<Player> > it = players.begin();
-			it != players.end(); ++it)
+	for(auto it = players.begin(); it != players.end(); ++it)
 	{
 		if(it->canMove())
 			printf("%s pole: %s gotowka: %u\n", it->getName(), fields[it->getPosition()]->getName(), it->getCash());
@@ -149,6 +152,7 @@ void MojaGrubaRyba::outputState()
 			printf("%s *** bankrut ***\n", it->getName());
 	}
 }
+*/
 
 void MojaGrubaRyba::play(unsigned int rounds)
 {
@@ -156,7 +160,7 @@ void MojaGrubaRyba::play(unsigned int rounds)
 		throw NoDieException();
 	if(activePlayers < MIN_PLAYERS)
 		throw TooFewPlayersException(MIN_PLAYERS);
-	for(unsigned int i = 0; activePlayers >= MIN_PLAYERS && i < rounds; i++)
+	for(unsigned int i = 0; i < rounds; i++) //activePlayers >= MIN_PLAYERS zbedne - i tak rzucamy wyjatek w sytuacji przeciwnej
 	{
 		printf("Runda %u.\n", i);
 		makeTurn();
