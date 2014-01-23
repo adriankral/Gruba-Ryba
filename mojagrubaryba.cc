@@ -1,4 +1,5 @@
 #include <vector>
+#include <iostream>
 #include "mojagrubaryba.h"
 
 using namespace std;
@@ -90,14 +91,13 @@ void MojaGrubaRyba::addComputerPlayer(MojaGrubaRyba::ComputerLevel level)
 {
 	if(players.size() >= MAX_PLAYERS)
 		throw TooManyPlayersException(MAX_PLAYERS);
-	std::string newName = "Gracz ";
-	newName += ++activePlayers;
-	//Player compPlayer;
+	
+	shared_ptr<Player> compPlayer;
 	if(level == ComputerLevel::DUMB)
-		; //compPlayer = ComputerDUMB(newName, STARTPOS, STARTCASH);
+		compPlayer = dynamic_pointer_cast<Player>(shared_ptr<ComputerDUMB> (new ComputerDUMB(STARTPOS, STARTCASH, ++activePlayers)));
 	else if(level == ComputerLevel::SMARTASS)
-		; //compPlayer = ComputerSMARTASS(newName, STARTPOS, STARTCASH);
-	//players.push_back(compPlayer);
+		compPlayer = dynamic_pointer_cast<Player>(shared_ptr<ComputerSMARTASS> (new ComputerSMARTASS(STARTPOS, STARTCASH, ++activePlayers)));
+	players.push_back(compPlayer);
 	activePlayers++;
 }
 
@@ -105,8 +105,9 @@ void MojaGrubaRyba::addHumanPlayer(std::shared_ptr<Human> human)
 {
 	if(players.size() >= MAX_PLAYERS)
 		throw TooManyPlayersException(MAX_PLAYERS);
-	//Player hp = (HumanPlayer)(*human); 
-	//players.push_back(hp);
+	shared_ptr<HumanPlayer> hp = dynamic_pointer_cast<HumanPlayer>(shared_ptr<Human>(human)); 
+	shared_ptr<Player> p = dynamic_pointer_cast<Player>(hp);
+	players.push_back(p);
 	activePlayers++;
 }
 
@@ -140,19 +141,37 @@ void MojaGrubaRyba::makeTurn()
 /* FIXME trzeba coś zrobić z getname. Prawdopodobnie trzeba tu użyć dynamic casta. Proponuję żeby "ComputerPlayer" 
  * posiadał wirtualną metodę getName i player w zależności od tego czy jest komputerem czy graczem żeby wywoływał metodę
  * po odpowiednim caście.
+ */
 void MojaGrubaRyba::outputState()
 {
 	for(auto it = players.begin(); it != players.end(); ++it)
 	{
-		if(it->canMove())
-			printf("%s pole: %s gotowka: %u\n", it->getName(), fields[it->getPosition()]->getName(), it->getCash());
-		else if(it->isActive())
-			printf("%s pole: %s *** czekanie %u ***\n", it->getName(), fields[it->getPosition()]->getName(), it->getToWait());
+		shared_ptr<HumanPlayer> hp = dynamic_pointer_cast<HumanPlayer>(*it);
+		shared_ptr<ComputerPlayer> cp = dynamic_pointer_cast<ComputerPlayer>(*it);
+
+		if(cp)
+		{
+			if((*it)->canMove())
+				std::cout<<cp->getName()<<" pole: "<<fields[(*it)->getPosition()]->getName()<<" gotowka: "<<(*it)->getCash()<<std::endl;
+			else if((*it)->isActive())
+				std::cout<<cp->getName()<<" pole: "<<fields[(*it)->getPosition()]->getName()<<" *** czekanie "<<(*it)->getToWait()<<" ***"<<std::endl;
+			else
+				std::cout<<cp->getName()<<" *** bankrut ***"<<std::endl;
+		}
 		else
-			printf("%s *** bankrut ***\n", it->getName());
+		{
+			if((*it)->canMove())
+				std::cout<<hp->getName()<<" pole: "<<fields[(*it)->getPosition()]->getName()<<" gotowka: "<<(*it)->getCash()<<std::endl;
+			else if((*it)->isActive())
+				std::cout<<hp->getName()<<" pole: "<<fields[(*it)->getPosition()]->getName()<<" *** czekanie "<<(*it)->getToWait()<<" ***"<<std::endl;
+			else
+				std::cout<<hp->getName()<<" *** bankrut ***"<<std::endl;
+		}
+
+		
 	}
 }
-*/
+
 
 void MojaGrubaRyba::play(unsigned int rounds)
 {

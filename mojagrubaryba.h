@@ -17,7 +17,7 @@ typedef std::vector<std::shared_ptr<Property>> PropertyVector;
 class Player
 {
 protected:
-	std::string const& name;
+	//std::string const& name; - jest w definicji klas dziedziczących po human
 	unsigned int position;
 	unsigned int cash;
 	// true if the player is still in the game
@@ -30,53 +30,58 @@ protected:
 	// of satisfying aforementioned demand
 	virtual PropertyVector sellFor(int money);
 public:
-	Player(std::string const& _name, int _position, int _cash) :
-		name(_name), position(_position), cash(_cash), active(true),
-		toWait(0) {}
+	Player(int _position, int _cash, unsigned int playerID) :
+		position(_position), cash(_cash), active(true),
+		toWait(0), playerID(playerID) {}
 	inline bool canMove() const { return active && toWait != 0; }
 	inline bool isActive() const { return active; }
 	inline void movePassed() { toWait = toWait > 0 ? toWait - 1 : 0; }
 	inline unsigned int getPosition() { return position; }
 	inline void setPosition(unsigned int _position) { position = _position; }
+	inline unsigned int getToWait() { return toWait; }
+	inline unsigned int getCash() { return cash; }
 	// returns cost if the player can afford it; if not, declares
 	// bankruptcy and returns the amount of money gained
 	// through selling all properties
 	unsigned int pay(unsigned int cost = 0, bool volountary = true);
 	void receive(unsigned int cost) { cash += cost; }
 	void wait(unsigned int delay) { toWait += delay; }
-	virtual std::string const& getName();
+	//virtual std::string const& getName();
 	// sells all properties, sets itself inactive and returns
 	// the amount of money accumulated during the selling process
 	virtual unsigned int declareBankruptcy(); 
 	PropertyVector properties;
 };
 
-class HumanPlayer : Player, Human 
+class HumanPlayer : public Player, public Human 
 {
-	//SOMETHING.
+	
 };
 
-class ComputerPlayer : Player 
+class ComputerPlayer : public Player 
 {
-	//SOMETHING
+public:
+	ComputerPlayer(int _position, int _cash, int _playerID) :
+		Player(_position, _cash, _playerID) {}
+	std::string const getName() const {return "Gracz " + playerID;}
 };
 
-class ComputerDUMB : Player //ComputerPlayer ?
+class ComputerDUMB : public ComputerPlayer
 {
 private:
 	unsigned short counter;
 public:
-	ComputerDUMB(std::string const& _name, int _position, int _cash) :
-		Player(_name, _position, _cash) {}
+	ComputerDUMB(int _position, int _cash, int _playerID) :
+		ComputerPlayer(_position, _cash, _playerID) {}
 	bool wantBuy(std::string const& property) const;
 	bool wantSell(std::string const& property) const { return true; }
 };
 
-class ComputerSMARTASS : Player //ComputerPlayer ?
+class ComputerSMARTASS : public ComputerPlayer
 {
 public:
-	ComputerSMARTASS(std::string const& _name, int _position, int _cash) :
-		Player(_name, _position, _cash) {}
+	ComputerSMARTASS(int _position, int _cash, int _playerID) :
+		ComputerPlayer(_position, _cash, _playerID) {}
 	bool wantBuy(std::string const& property) const { return true; }
 	bool wantSell(std::string const& property) const { return true; }
 };
