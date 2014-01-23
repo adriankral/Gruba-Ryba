@@ -4,11 +4,13 @@
 #include <vector>
 #include <string>
 #include <memory>
+#include <map>
 #include "tests/grubaryba.h" //FIXME remember to change the path at the end!
 
 
 class Property;
 class Player;
+class MojaGrubaRyba;
 
 typedef std::weak_ptr<Player> WeakPlayerPointer;
 typedef std::shared_ptr<Player> PlayerPointer;
@@ -18,6 +20,7 @@ typedef std::vector<std::weak_ptr<Property>> WeakPropertyVector;
 class Player
 {
 protected:
+	std::shared_ptr<MojaGrubaRyba> game;
 	//std::string const& name; - jest w definicji klas dziedziczących po human
 	unsigned int position;
 	unsigned int cash;
@@ -30,10 +33,11 @@ protected:
 	// money demand or an empty set, if there is no possibility
 	// of satisfying aforementioned demand
 	virtual WeakPropertyVector sellFor(int money);
-	WeakPropertyVector properties;
+	WeakPropertyVector properties;	
+	virtual bool canAfford(std::string const& propertyName);
 public:
-	Player(int _position, int _cash, unsigned int playerID) :
-		position(_position), cash(_cash), active(true),
+	Player(std::shared_ptr<MojaGrubaRyba> _game, int _position, int _cash, unsigned int playerID) :
+		game(_game), position(_position), cash(_cash), active(true),
 		toWait(0), playerID(playerID) {}
 	inline bool canMove() const { return active && toWait == 0; }
 	inline bool isActive() const { return active; }
@@ -61,7 +65,7 @@ class HumanPlayer : public Player
 {
 	std::shared_ptr<Human> human;
 public:
-	HumanPlayer(std::shared_ptr<Human> human, int _position, int _cash, unsigned int _playerID) : Player(_position, _cash, _playerID), human(human)  {}
+	HumanPlayer(std::shared_ptr<MojaGrubaRyba> _game, std::shared_ptr<Human> _human, unsigned int _position, unsigned int _cash, unsigned int _playerID) : Player(_game, _position, _cash, _playerID), human(_human)  {}
 	std::string const& getName() {return human->getName();}
 	virtual bool wantBuy(std::string const& propertyName) { return human->wantBuy(propertyName); }
 	virtual bool wantSell(std::string const& propertyName) { return human->wantSell(propertyName); }
@@ -69,10 +73,10 @@ public:
 
 class ComputerPlayer : public Player 
 {
-	std::string const& name;
+	std::string name;
 public:
-	ComputerPlayer(int _position, int _cash, int _playerID) :
-		Player(_position, _cash, _playerID), name("Gracz " + playerID) {  }
+	ComputerPlayer(std::shared_ptr<MojaGrubaRyba> _game, unsigned int _position, unsigned int _cash, unsigned int _playerID) :
+		Player(_game, _position, _cash, _playerID), name(std::string("Gracz ") + std::to_string(playerID)) {  }
 	std::string const& getName() {return name;}
 };
 
@@ -81,25 +85,25 @@ class ComputerDUMB : public ComputerPlayer
 private:
 	unsigned short counter;
 public:
-	ComputerDUMB(int _position, int _cash, int _playerID) :
-		ComputerPlayer(_position, _cash, _playerID) {}
-	virtual bool wantBuy(std::string const& propertyName) { return true; }
-	virtual bool wantSell(std::string const& propertyName) { return true; }
+	ComputerDUMB(std::shared_ptr<MojaGrubaRyba> _game, unsigned int _position, unsigned int _cash, unsigned int _playerID) :
+		ComputerPlayer(_game, _position, _cash, _playerID), counter(0) {}
+	virtual bool wantBuy(std::string const& propertyName) { if(!canAfford(propertyName)) return false; counter = counter + 1 % 3; return counter == 0; }
+	virtual bool wantSell(std::string const& propertyName) { return false; }
 };
 
 class ComputerSMARTASS : public ComputerPlayer
 {
 public:
-	ComputerSMARTASS(int _position, int _cash, int _playerID) :
-		ComputerPlayer(_position, _cash, _playerID) {}
-	virtual bool wantBuy(std::string const& propertyName) { return true; }
-	virtual bool wantSell(std::string const& propertyName) { return true; }
+	ComputerSMARTASS(std::shared_ptr<MojaGrubaRyba> _game, unsigned int _position, unsigned int _cash, unsigned int _playerID) :
+		ComputerPlayer(_game, _position, _cash, _playerID) {}
+	virtual bool wantBuy(std::string const& propertyName) { if(!canAfford(propertyName)) return false; return true; }
+	virtual bool wantSell(std::string const& propertyName) { return false; }
 };
 
 class Field
 {
 protected:
-	std::string const& name;
+	std::string name;
 public:
 	Field(std::string const& _name) : name(_name) {}
 	std::string const& getName() const { return name; }
@@ -137,12 +141,12 @@ public:
 	virtual void onStep(PlayerPointer p) { p->receive(bonus); }
 };
 
-class Prize : public Field
+class Reward : public Field
 {
 protected:
 	const int bonus;
 public:
-	Prize(std::string const& _name, int _bonus) :
+	Reward(std::string const& _name, int _bonus) :
 		Field(_name), bonus(_bonus) {}
 	virtual inline void onStep(PlayerPointer p)
 	{ p->receive(bonus); }
@@ -156,22 +160,22 @@ public:
 	Punishment(std::string const& _name, int _malus) :
 		Field(_name), malus(_malus) {}
 	virtual inline void onStep(PlayerPointer p)
-	{ p->pay(malus); }
+	{ p->pay(malus, false); }
 };
 
 class Deposite : public Field
 {
 protected:
-	const int payOnPass;
-	int bank;
+	const unsigned int payOnPass;
+	unsigned int bank;
 
 public:
-	Deposite(std::string const& _name, int _payOnPass, int _bank = 0) :
+	Deposite(std::string const& _name, unsigned int _payOnPass, unsigned int _bank = 0) :
 		Field(_name), payOnPass(_payOnPass), bank(_bank) {}
 	virtual inline void onStep(PlayerPointer p)
 	{ p->receive(bank); bank = 0; }
 	virtual inline void onPass(PlayerPointer p)
-	{ bank += p->pay(payOnPass); }
+	{ unsigned int paid = p->pay(payOnPass, false); bank += (paid > payOnPass) ? payOnPass : paid; }
 };
 
 class Aquarium : public Field
@@ -184,7 +188,7 @@ public:
 	virtual void onStep(PlayerPointer p) { p->wait(delay); }
 };
 
-class MojaGrubaRyba : GrubaRyba
+class MojaGrubaRyba : public GrubaRyba, public std::enable_shared_from_this<MojaGrubaRyba>
 {
 private:
 	std::vector<PlayerPointer> players;
@@ -199,12 +203,29 @@ private:
 	const unsigned int STARTPOS = 0;
 	const unsigned int STARTCASH = 1000;
 
+	std::map<std::string, unsigned int> propertyValueMap;
+
+	enum FieldType
+	{
+		FT_ISLAND,
+		FT_START,
+		FT_REWARD,
+		FT_PUNISHMENT,
+		FT_DEPOSITE,
+		FT_AQUARIUM,
+		FT_CORAL,
+		FT_PUBLIC_USE
+	};
+
+	std::shared_ptr<Field> produceField(FieldType fType, std::string const& name, unsigned int fieldArgument = 0);
+
 	void makeTurn();
 	void outputState();
 public:
 	MojaGrubaRyba();
+	unsigned int getPropertyValue(std::string const& name) { return propertyValueMap[name]; }
 	void setDie(std::shared_ptr<Die> _die) { if(_die) die = _die; }
-	void addComputerPlayer(GrubaRyba::ComputerLevel level); //TODO
+	void addComputerPlayer(GrubaRyba::ComputerLevel level);
 	void addHumanPlayer(std::shared_ptr<Human> human);
 	void play(unsigned int rounds);
 };
