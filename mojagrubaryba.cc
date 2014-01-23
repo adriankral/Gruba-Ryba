@@ -51,7 +51,6 @@ unsigned int Player::pay(unsigned int cost, bool volountary)
 
 unsigned int Player::declareBankruptcy()
 {
-	//std::cout << getName() << " deklaruje bankructwo.\n";
 	unsigned int repayment = 0;
 	for(auto it = properties.begin(); it != properties.end(); ++it)
 	{
@@ -64,29 +63,24 @@ unsigned int Player::declareBankruptcy()
 
 unsigned int Property::sell()
 {
-	//std::cout << owner.lock()->getName() << " sprzedaje " << getName() << ".\n";
 	owner.reset();
 	return soldValue();
 }
 
 void Property::onStep(std::shared_ptr<Player> p)
 {
-	//std::cout << "Nastapiono na " << getName() << ".\n";
 	if (!owner.lock())
 	{
-		//std::cout << "Nie ma wlasciciela.\n";
 		if( p->wantBuy(name) )
 		{
 			if(p->pay(getValue()) == cost)
 			{
 				owner = p;
 				p->propertyBought(shared_from_this());
-				//std::cout << getName() << " kupiona przez " << p->getName() << ".\n";
 			}
 		}
 	}
 	else {
-		//std::cout << "Ma wlasciciela " << owner.lock()->getName() << ".\n";
 		unsigned int paid = p->pay(toPay(), false);
 		paid = (paid > toPay()) ? toPay() : paid;
 		owner.lock()->receive(paid);
@@ -108,34 +102,6 @@ MojaGrubaRyba::MojaGrubaRyba() : players(), fields(), die(), turn(0),
 	fields.push_back(produceField(FT_REWARD, "Błazenki", 120));
 	fields.push_back(produceField(FT_CORAL, "Pennatula", 400));
 	fields.push_back(produceField(FT_PUNISHMENT, "Rekin", 180));
-	//fields.push_back(shared_ptr<Field>( dynamic_pointer_cast<Field>( shared_ptr<Start>(new Start(50)))));
-	//fields.push_back(shared_ptr<Field>( dynamic_pointer_cast<Field>( shared_ptr<Coral>(new Coral("Anemonia", 160)))));
-	//fields.push_back(shared_ptr<Field>( new Field("Wyspa") ));
-	//fields.push_back(shared_ptr<Field>( dynamic_pointer_cast<Field>( shared_ptr<Coral>(new Coral("Aporina", 220)))));
-	//fields.push_back(shared_ptr<Field>( dynamic_pointer_cast<Field>( shared_ptr<Aquarium>(new Aquarium("Akwarium", 3)))));
-	//fields.push_back(shared_ptr<Field>( dynamic_pointer_cast<Field>( shared_ptr<PublicUse>(new PublicUse("Grota", 300)))));
-	//fields.push_back(shared_ptr<Field>( dynamic_pointer_cast<Field>( shared_ptr<Coral>(new Coral("Menella", 280)))));
-	//fields.push_back(shared_ptr<Field>( dynamic_pointer_cast<Field>( shared_ptr<Deposite>(new Deposite("Laguna", 15)))));
-	//fields.push_back(shared_ptr<Field>( dynamic_pointer_cast<Field>( shared_ptr<PublicUse>(new PublicUse("Statek", 250)))));
-	//fields.push_back(shared_ptr<Field>( dynamic_pointer_cast<Field>( shared_ptr<Reward>(new Reward("Błazenki", 120)))));
-	//fields.push_back(shared_ptr<Field>( dynamic_pointer_cast<Field>( shared_ptr<Coral>(new Coral("Pennatula", 400)))));
-	//fields.push_back(shared_ptr<Field>( dynamic_pointer_cast<Field>( shared_ptr<Punishment>(new Punishment("Rekin", 180)))));
-	
-	
-	//DUM DUM DUUUM
-	/*
-class Anemonia : Coral("Anemonia", 160) {};
-class Island : Field("Wyspa") {};
-class Aporina : Coral("Aporina", 220) {};
-class AqariumField : Aquarium("Akwarium", 3) {};
-class Cave : PublicUse("Grota", 300) {};
-class Menella : Coral("Menella", 280) {};
-class Laguna : Deposite("Laguna", 15) {};
-class Ship : PublicUse("Statek", 250) {};
-class Nemo : Prize("Błazenki", 120) {};
-class Pennatula : Coral("Pennatula", 400) {};
-class Shark : Punishment("Rekin", 180) {};
-*/
 }
 
 shared_ptr<Field> MojaGrubaRyba::produceField(FieldType fType, std::string const& name, unsigned int fieldArgument)
@@ -214,45 +180,16 @@ void MojaGrubaRyba::makeTurn()
 	}
 }
 
-/* FIXME trzeba coś zrobić z getname. Prawdopodobnie trzeba tu użyć dynamic casta. Proponuję żeby "ComputerPlayer" 
- * posiadał wirtualną metodę getName i player w zależności od tego czy jest komputerem czy graczem żeby wywoływał metodę
- * po odpowiednim caście.
- */
-void MojaGrubaRyba::outputState() //FIXME
+void MojaGrubaRyba::outputState()
 {
 	for(auto it = players.begin(); it != players.end(); ++it)
 	{
-		//shared_ptr<HumanPlayer> hp = dynamic_pointer_cast<HumanPlayer>(*it);
-		//shared_ptr<ComputerPlayer> cp = dynamic_pointer_cast<ComputerPlayer>(*it);
-
 		if((*it)->canMove())
 			std::cout<<(*it)->getName()<<" pole: "<<fields[(*it)->getPosition()]->getName()<<" gotowka: "<<(*it)->getCash()<<std::endl;
 		else if((*it)->isActive())
 			std::cout<<(*it)->getName()<<" pole: "<<fields[(*it)->getPosition()]->getName()<<" *** czekanie "<<(*it)->getToWait()<<" ***"<<std::endl;
 		else
 			std::cout<<(*it)->getName()<<" *** bankrut ***"<<std::endl;
-
-/*
-		if(cp)
-		{
-			if((*it)->canMove())
-				std::cout<<cp->getName()<<" pole: "<<fields[(*it)->getPosition()]->getName()<<" gotowka: "<<(*it)->getCash()<<std::endl;
-			else if((*it)->isActive())
-				std::cout<<cp->getName()<<" pole: "<<fields[(*it)->getPosition()]->getName()<<" *** czekanie "<<(*it)->getToWait()<<" ***"<<std::endl;
-			else
-				std::cout<<cp->getName()<<" *** bankrut ***"<<std::endl;
-		}
-		else
-		{
-			if((*it)->canMove())
-				std::cout<<hp->getName()<<" pole: "<<fields[(*it)->getPosition()]->getName()<<" gotowka: "<<(*it)->getCash()<<std::endl;
-			else if((*it)->isActive())
-				std::cout<<hp->getName()<<" pole: "<<fields[(*it)->getPosition()]->getName()<<" *** czekanie "<<(*it)->getToWait()<<" ***"<<std::endl;
-			else
-				std::cout<<hp->getName()<<" *** bankrut ***"<<std::endl;
-		}
-*/
-		
 	}
 }
 
@@ -263,7 +200,7 @@ void MojaGrubaRyba::play(unsigned int rounds)
 		throw NoDieException();
 	if(activePlayers < MIN_PLAYERS)
 		throw TooFewPlayersException(MIN_PLAYERS);
-	for(unsigned int i = 1; activePlayers > 1 && i <= rounds; i++) //activePlayers >= MIN_PLAYERS niezbedne, zeby przegrac gre jak zostanie tylko okreslona ilosc graczy.
+	for(unsigned int i = 1; activePlayers > 1 && i <= rounds; i++)
 	{
 		printf("Runda %u.\n", i);
 		makeTurn();

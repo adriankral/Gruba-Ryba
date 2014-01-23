@@ -7,7 +7,6 @@
 #include <map>
 #include "tests/grubaryba.h" //FIXME remember to change the path at the end!
 
-
 class Property;
 class Player;
 class MojaGrubaRyba;
@@ -20,11 +19,12 @@ typedef std::vector<std::weak_ptr<Property>> WeakPropertyVector;
 class Player
 {
 protected:
+	//enables two-way communication between the game and the player
 	std::shared_ptr<MojaGrubaRyba> game;
 	//std::string const& name; - jest w definicji klas dziedziczących po human
 	unsigned int position;
 	unsigned int cash;
-	// true if the player is still in the game
+	// true if the player is still in the game(not bankrupt)
 	bool active; 
 	// equals zero or number of turns to be spent involountarily passive
 	unsigned int toWait;
@@ -48,19 +48,21 @@ public:
 	inline unsigned int getCash() { return cash; }
 	// returns cost if the player can afford it; if not, declares
 	// bankruptcy and returns the amount of money gained
-	// through selling all properties
+	// through selling all properties. If volountary is set to true,
+	// lack of money does not lead to bankruptcy
 	unsigned int pay(unsigned int cost = 0, bool volountary = true);
 	void receive(unsigned int cost) { cash += cost; }
 	void wait(unsigned int delay) { toWait += delay; }
 	// sells all properties, sets itself inactive and returns
 	// the amount of money accumulated during the selling process
 	virtual unsigned int declareBankruptcy(); 
-
+	// confirmation from property
+	virtual void propertyBought(std::weak_ptr<Property> prop) { properties.push_back(prop); }
+	
 	virtual std::string const& getName() = 0;
 	virtual bool wantBuy(std::string const& propertyName) = 0;
     	virtual bool wantSell(std::string const& propertyName) = 0;
 
-	virtual void propertyBought(std::weak_ptr<Property> prop) { properties.push_back(prop); }
 };
 
 class HumanPlayer : public Player 
@@ -109,6 +111,9 @@ protected:
 public:
 	Field(std::string const& _name) : name(_name) {}
 	std::string const& getName() const { return name; }
+	
+	// events
+	// this is a simple field. it just exists and disturbs noone.
 	virtual void onPass(PlayerPointer p) {}
 	virtual void onStep(PlayerPointer p) {}
 };
@@ -124,6 +129,8 @@ public:
 
 	inline unsigned int const getValue() { return cost; }
 	virtual inline unsigned int const soldValue() { return cost / 2; }
+
+	// sets owner to empty, returns soldValue
 	virtual unsigned int sell();
 	
 	// returns the amount of money to be paid to owner on stay
@@ -204,9 +211,14 @@ private:
 	const unsigned int MAX_PLAYERS = 8;
 	const unsigned int STARTPOS = 0;
 	const unsigned int STARTCASH = 1000;
-
+	
+	// required by use of std::string in wantBuy, wantSell;
+	// the player doesn't have direct access to the board,
+	// so he/she has to ask the game core for information
 	std::map<std::string, unsigned int> propertyValueMap;
 
+	// enumerator of field types, used in implementation of 
+	// field factory function
 	enum FieldType
 	{
 		FT_ISLAND,
@@ -219,9 +231,13 @@ private:
 		FT_PUBLIC_USE
 	};
 
+	// field factory; returns a pointer to newly created field
 	std::shared_ptr<Field> produceField(FieldType fType, std::string const& name, unsigned int fieldArgument = 0);
-
+	
+	// makes each player move, stopping the game if all but one go bankrupt
 	void makeTurn();
+
+	// prints game state information to the output
 	void outputState();
 public:
 	MojaGrubaRyba();
