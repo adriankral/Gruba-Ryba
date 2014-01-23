@@ -51,34 +51,42 @@ unsigned int Player::pay(unsigned int cost, bool volountary)
 
 unsigned int Player::declareBankruptcy()
 {
+	//std::cout << getName() << " deklaruje bankructwo.\n";
 	unsigned int repayment = 0;
 	for(auto it = properties.begin(); it != properties.end(); ++it)
 	{
 		repayment += (*it).lock()->sell();
 	}
+	properties.clear();
 	active = false;
 	return repayment;
 }
 
 unsigned int Property::sell()
 {
+	//std::cout << owner.lock()->getName() << " sprzedaje " << getName() << ".\n";
 	owner.reset();
 	return soldValue();
 }
 
 void Property::onStep(std::shared_ptr<Player> p)
 {
+	//std::cout << "Nastapiono na " << getName() << ".\n";
 	if (!owner.lock())
 	{
+		//std::cout << "Nie ma wlasciciela.\n";
 		if( p->wantBuy(name) )
 		{
 			if(p->pay(getValue()) == cost)
 			{
 				owner = p;
+				p->propertyBought(shared_from_this());
+				//std::cout << getName() << " kupiona przez " << p->getName() << ".\n";
 			}
 		}
 	}
 	else {
+		//std::cout << "Ma wlasciciela " << owner.lock()->getName() << ".\n";
 		unsigned int paid = p->pay(toPay(), false);
 		paid = (paid > toPay()) ? toPay() : paid;
 		owner.lock()->receive(paid);

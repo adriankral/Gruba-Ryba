@@ -58,7 +58,9 @@ public:
 
 	virtual std::string const& getName() = 0;
 	virtual bool wantBuy(std::string const& propertyName) = 0;
-    virtual bool wantSell(std::string const& propertyName) = 0;
+    	virtual bool wantSell(std::string const& propertyName) = 0;
+
+	virtual void propertyBought(std::weak_ptr<Property> prop) { properties.push_back(prop); }
 };
 
 class HumanPlayer : public Player 
@@ -111,7 +113,7 @@ public:
 	virtual void onStep(PlayerPointer p) {}
 };
 
-class Property : public Field
+class Property : public Field, public std::enable_shared_from_this<Property>
 {
 protected:
 	const unsigned int cost;
