@@ -13,6 +13,7 @@ class Player;
 typedef std::weak_ptr<Player> WeakPlayerPointer;
 typedef std::shared_ptr<Player> PlayerPointer;
 typedef std::vector<std::shared_ptr<Property>> PropertyVector;
+typedef std::vector<std::weak_ptr<Property>> WeakPropertyVector;
 
 class Player
 {
@@ -28,12 +29,13 @@ protected:
 	// returns either a set of properties, selling of which would satisfy
 	// money demand or an empty set, if there is no possibility
 	// of satisfying aforementioned demand
-	virtual PropertyVector sellFor(int money);
+	virtual WeakPropertyVector sellFor(int money);
+	WeakPropertyVector properties;
 public:
 	Player(int _position, int _cash, unsigned int playerID) :
 		position(_position), cash(_cash), active(true),
 		toWait(0), playerID(playerID) {}
-	inline bool canMove() const { return active && toWait != 0; }
+	inline bool canMove() const { return active && toWait == 0; }
 	inline bool isActive() const { return active; }
 	inline void movePassed() { toWait = toWait > 0 ? toWait - 1 : 0; }
 	inline unsigned int getPosition() { return position; }
@@ -46,24 +48,32 @@ public:
 	unsigned int pay(unsigned int cost = 0, bool volountary = true);
 	void receive(unsigned int cost) { cash += cost; }
 	void wait(unsigned int delay) { toWait += delay; }
-	//virtual std::string const& getName();
 	// sells all properties, sets itself inactive and returns
 	// the amount of money accumulated during the selling process
 	virtual unsigned int declareBankruptcy(); 
-	PropertyVector properties;
+
+	virtual std::string const& getName() = 0;
+	virtual bool wantBuy(std::string const& propertyName) = 0;
+    virtual bool wantSell(std::string const& propertyName) = 0;
 };
 
-class HumanPlayer : public Player, public Human 
+class HumanPlayer : public Player 
 {
-	
+	std::shared_ptr<Human> human;
+public:
+	HumanPlayer(std::shared_ptr<Human> human, int _position, int _cash, unsigned int _playerID) : Player(_position, _cash, _playerID), human(human)  {}
+	std::string const& getName() {return human->getName();}
+	virtual bool wantBuy(std::string const& propertyName) { return human->wantBuy(propertyName); }
+	virtual bool wantSell(std::string const& propertyName) { return human->wantSell(propertyName); }
 };
 
 class ComputerPlayer : public Player 
 {
+	std::string const& name;
 public:
 	ComputerPlayer(int _position, int _cash, int _playerID) :
-		Player(_position, _cash, _playerID) {}
-	std::string const getName() const {return "Gracz " + playerID;}
+		Player(_position, _cash, _playerID), name("Gracz " + playerID) {  }
+	std::string const& getName() {return name;}
 };
 
 class ComputerDUMB : public ComputerPlayer
@@ -73,8 +83,8 @@ private:
 public:
 	ComputerDUMB(int _position, int _cash, int _playerID) :
 		ComputerPlayer(_position, _cash, _playerID) {}
-	bool wantBuy(std::string const& property) const;
-	bool wantSell(std::string const& property) const { return true; }
+	virtual bool wantBuy(std::string const& propertyName) { return true; }
+	virtual bool wantSell(std::string const& propertyName) { return true; }
 };
 
 class ComputerSMARTASS : public ComputerPlayer
@@ -82,8 +92,8 @@ class ComputerSMARTASS : public ComputerPlayer
 public:
 	ComputerSMARTASS(int _position, int _cash, int _playerID) :
 		ComputerPlayer(_position, _cash, _playerID) {}
-	bool wantBuy(std::string const& property) const { return true; }
-	bool wantSell(std::string const& property) const { return true; }
+	virtual bool wantBuy(std::string const& propertyName) { return true; }
+	virtual bool wantSell(std::string const& propertyName) { return true; }
 };
 
 class Field
@@ -97,11 +107,10 @@ public:
 	virtual void onStep(PlayerPointer p) {}
 };
 
-class Property : Field
+class Property : public Field
 {
 protected:
 	const unsigned int cost;
-	bool hasOwner=false;
 public:
 	Property(std::string const& _name, unsigned int _cost) :
 		Field(_name), cost(_cost) {}
@@ -117,18 +126,18 @@ public:
 	virtual void onStep(PlayerPointer p);
 };
 
-class Start : Field
+class Start : public Field
 {
 protected:
 	const int bonus;
 public:
-	Start(std::string const& _name, int _bonus = 50) :
-		Field(_name), bonus(_bonus) {}
+	Start(int _bonus = 50) :
+		Field("Start"), bonus(_bonus) {}
 	virtual void onPass(PlayerPointer p) { p->receive(bonus); }
 	virtual void onStep(PlayerPointer p) { p->receive(bonus); }
 };
 
-class Prize : Field
+class Prize : public Field
 {
 protected:
 	const int bonus;
@@ -139,7 +148,7 @@ public:
 	{ p->receive(bonus); }
 };
 
-class Punishment : Field
+class Punishment : public Field
 {
 protected:
 	const int malus;
@@ -150,7 +159,7 @@ public:
 	{ p->pay(malus); }
 };
 
-class Deposite : Field
+class Deposite : public Field
 {
 protected:
 	const int payOnPass;
@@ -165,7 +174,7 @@ public:
 	{ bank += p->pay(payOnPass); }
 };
 
-class Aquarium : Field
+class Aquarium : public Field
 {
 protected:
 	const int delay;
@@ -179,7 +188,7 @@ class MojaGrubaRyba : GrubaRyba
 {
 private:
 	std::vector<PlayerPointer> players;
-	std::vector<std::shared_ptr<Field> > fields;
+	std::vector<std::shared_ptr<Field>> fields;
 	std::shared_ptr<Die> die;
 	int turn;
 	int currentPlayer;
@@ -200,34 +209,20 @@ public:
 	void play(unsigned int rounds);
 };
 
-class Coral : Property
+class Coral : public Property
 {
 public:
 	Coral(std::string const& _name, int _cost) :
 		Property(_name, _cost) {}
-	virtual inline int toPay() const { return cost / 5; }
+	virtual unsigned int const toPay() { return cost / 5; }
 };
 
-class PublicUse : Property
+class PublicUse : public Property
 {
 public:
 	PublicUse(std::string const& _name, int _cost) :
 		Property(_name, _cost) {}
-	virtual inline int toPay() const { return cost * 2 / 5; }
+	virtual unsigned int const toPay() { return cost * 2 / 5; }
 };
-
-/* za dużo to gówno wyrzuca :P
-class Anemonia : Coral("Anemonia", 160) {};
-class Island : Field("Wyspa") {};
-class Aporina : Coral("Aporina", 220) {};
-class AqariumField : Aquarium("Akwarium", 3) {};
-class Cave : PublicUse("Grota", 300) {};
-class Menella : Coral("Menella", 280) {};
-class Laguna : Deposite("Laguna", 15) {};
-class Ship : PublicUse("Statek", 250) {};
-class Nemo : Prize("Błazenki", 120) {};
-class Pennatula : Coral("Pennatula", 400) {};
-class Shark : Punishment("Rekin", 180) {};
-*/
 
 #endif /* MOJAGRUBARYBA_H */
