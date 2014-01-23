@@ -184,6 +184,7 @@ void MojaGrubaRyba::makeTurn()
 {
 	for(auto it = players.begin(); it != players.end(); ++it)
 	{
+		(*it)->movePassed();
 		if((*it)->canMove())
 		{
 			unsigned short moves = die->roll() + die->roll();
@@ -197,6 +198,8 @@ void MojaGrubaRyba::makeTurn()
 			if(!(*it)->isActive())
 			{
 				--activePlayers;
+				if(activePlayers < 2)
+					return;
 			}
 		}
 			
@@ -220,7 +223,6 @@ void MojaGrubaRyba::outputState() //FIXME
 			std::cout<<(*it)->getName()<<" pole: "<<fields[(*it)->getPosition()]->getName()<<" *** czekanie "<<(*it)->getToWait()<<" ***"<<std::endl;
 		else
 			std::cout<<(*it)->getName()<<" *** bankrut ***"<<std::endl;
-		(*it)->movePassed();
 
 /*
 		if(cp)

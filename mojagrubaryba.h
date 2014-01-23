@@ -87,7 +87,7 @@ private:
 public:
 	ComputerDUMB(std::shared_ptr<MojaGrubaRyba> _game, unsigned int _position, unsigned int _cash, unsigned int _playerID) :
 		ComputerPlayer(_game, _position, _cash, _playerID), counter(0) {}
-	virtual bool wantBuy(std::string const& propertyName) { if(!canAfford(propertyName)) return false; counter = counter + 1 % 3; return counter == 0; }
+	virtual bool wantBuy(std::string const& propertyName) { if(!canAfford(propertyName)) return false; counter = (counter + 1) % 3; return counter == 0; }
 	virtual bool wantSell(std::string const& propertyName) { return false; }
 };
 
